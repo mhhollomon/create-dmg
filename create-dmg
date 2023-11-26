@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -x
+
 # Create a read-only disk image of the contents of a folder
 
 # Bail out on any unhandled errors
@@ -96,6 +98,8 @@ Options:
       make a drop link to Applications, at location x,y
   --ql-drop-link <x> <y>
       make a drop link to user QuickLook install dir, at location x,y
+  --add-drop-link <path> <display-name> <x> <y>
+      make a drop link to a specified directory with a custom display name, at location x,y
   --eula <eula_file>
       attach a license file to the dmg (plain text or RTF)
   --no-internet-enable
@@ -204,6 +208,12 @@ while [[ "${1:0:1}" = "-" ]]; do
 			APPLICATION_CLAUSE="set position of item \"Applications\" to {$2, $3}
 			"
 			shift; shift; shift;;
+		--add-drop-link)
+			CUSTOM_LINK="$2"
+			CUSTOM_DISPLAY="$3"
+			CUSTOM_CLAUSE="set position of item \"$CUSTOM_DISPLAY\" to {$4, $5}
+			"
+			shift; shift; shift; shift; shift;;
 		--eula)
 			EULA_RSRC=$2
 			shift; shift;;
@@ -447,6 +457,21 @@ if [[ -n "$QL_LINK" ]]; then
 	ln -s "/Library/QuickLook" "$MOUNT_DIR/QuickLook"
 fi
 
+if [[ -n "$CUSTOM_LINK" ]]; then
+	echo "Attempting to create drop link..."
+	echo $MOUNT_DIR
+	if [ -d "$CUSTOM_LINK" ]; then
+		ln -s "$CUSTOM_LINK" "$MOUNT_DIR/$CUSTOM_DISPLAY"
+		echo "Drop link created successfully."
+		echo "Drop link display name: $CUSTOM_DISPLAY"
+		echo "Drop link target folder path: $CUSTOM_LINK"		
+	else
+		echo "Drop link directory does not exist."
+		echo "If the intended path has spaces in it, try using double quotation marks when defining the argument."
+	fi
+
+fi
+
 if [[ -n "$VOLUME_ICON_FILE" ]]; then
 	echo "Copying volume icon file '$VOLUME_ICON_FILE'..."
 	cp "$VOLUME_ICON_FILE" "$MOUNT_DIR/.VolumeIcon.icns"
@@ -476,6 +501,7 @@ else
 					-e "s/ICON_SIZE/$ICON_SIZE/g" -e "s/TEXT_SIZE/$TEXT_SIZE/g" \
 			| perl -pe "s/POSITION_CLAUSE/$POSITION_CLAUSE/g" \
 			| perl -pe "s/QL_CLAUSE/$QL_CLAUSE/g" \
+			| perl -pe "s/CUSTOM_CLAUSE/$CUSTOM_CLAUSE/g" \
 			| perl -pe "s/APPLICATION_CLAUSE/$APPLICATION_CLAUSE/g" \
 			| perl -pe "s/HIDING_CLAUSE/$HIDING_CLAUSE/" \
 			> "$APPLESCRIPT_FILE"
